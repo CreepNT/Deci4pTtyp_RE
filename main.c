@@ -6,13 +6,19 @@
 #include "vfs.h"
 #include "deci4p_tty.h"
 
-#define SCE_KERNEL_EVF_ATTR_MULTI 0x1000
 #define SCE_KERNEL_EVF_ATTR_0x8000 0x8000
 
+//Imports from SceSysclibForDriver
+int snprintf(char*, size_t, char*, ...); 
+void* memset(void*, int, size_t);
+void * memcpy(void*, void*, size_t);
 
+int ksceKernelCheckDipsw(int);
+
+void _start() __attribute__((weak, alias("module_start")));
 int module_start(void){
     //Check if some DIP Switches are set
-    if (!ksceKernelCheckDipsw(0xC2) || !(ksceKernelCheckDispsw(0xC7)))
+    if (!ksceKernelCheckDipsw(0xC2) || !(ksceKernelCheckDipsw(0xC7)))
         return SCE_KERNEL_START_NO_RESIDENT;
     
     memset(&ctx1, 0, sizeof(ctx1));
@@ -38,7 +44,7 @@ int module_start(void){
     struct SceDeci4pDfMgrForDebugger_529979FB_arg2 pckt;
     pckt.size = sizeof(pckt);
     pckt.unk8 = 0;
-    pckt.unkc = 0x1000004;
+    pckt.unkC = 0x1000004;
     pckt.unk10 = 0x20001;
     pckt.unk14 = 0;
     pckt.unk16 = 0x1;
@@ -56,8 +62,8 @@ int module_start(void){
         ctx2[i].bufEnd = ctx2[i].buffer;
         ctx1[i].SceDeci4pDfMgrForDebugger_529979FB_handle = SceDeci4pDfMgrForDebugger_529979FB(0x81000381, &pckt, &ctx1[i]);
         ctx1[i].unk54 = 1;
-        memset(&ctx1[i].unk60, 0, 0x1040);
-        ctx1[i].ptr_to_unk60 = &ctx1[i].unk60;
+        memset(&ctx1[i].ctx3, 0, sizeof(Deci4pTTY_ctx3));
+        ctx1[i].associated_ctx3 = &ctx1[i].ctx3;
         ctx1[i].unk_10A4 = 0;
     }
     memset(&ctx3, 0, sizeof(ctx3));
@@ -65,7 +71,7 @@ int module_start(void){
     //Mount the VFS
     int ret = ksceVfsUnmount(&deci4p_tty_vfs_unmount);
     if (ret >= 0){
-        ret = ksceVfsMount(&deci4p_tty_vfs_add);
+        ret = ksceVfsAddVfs(&deci4p_tty_vfs_add);
         if (ret >= 0)
             ksceVfsMount(&deci4p_tty_vfs_mount);
     }
@@ -77,4 +83,8 @@ int module_start(void){
     else
         return SCE_KERNEL_START_SUCCESS;
 
+}
+
+int module_stop(SceSize argc, const void* args){
+    return SCE_KERNEL_STOP_SUCCESS; //not sure, didn't find it
 }

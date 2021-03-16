@@ -9,6 +9,50 @@ Deci4pTTY_ctx1 ctx1[TTY_COUNT] = {0};
 Deci4pTTY_ctx2 ctx2[TTY_COUNT];
 Deci4pTTY_ctx3 ctx3[3];
 
+const SceProcEventHandler deci4p_proc_handler = {
+    .size = sizeof(deci4p_proc_handler),
+    .create = NULL,
+    .exit = FUN_810001C0,
+    .kill = FUN_81000000,
+    .stop = NULL,
+    .start = NULL,
+    .switch_process = NULL
+};
+
+SceVfsUmount deci4p_tty_vfs_unmount = {
+    .device = DECI4P_TTY_FS_DEVICE,
+    .data_0x04 = 0,
+};
+
+static SceVfsMount2 deci4p_tty_vfs_mount2 = {
+  .unit = DECI4P_TTY_UNIT,
+  .device1 = DECI4P_TTY_FS_DEVICE,
+  .device2 = DECI4P_TTY_FS_DEVICE,
+  .data_0x0C = 0,
+  .data_0x10 = 0
+};
+
+SceVfsMount deci4p_tty_vfs_mount = {
+  .device = DECI4P_TTY_DEVICE,
+  .data_0x04 = 0,
+  .data_0x08 = 0x4000020,
+  .data_0x0C = 0x6003,
+  .data_0x10 = DECI4P_TTY_FS_DEVICE,
+  .data_0x14 = 0,
+  .data_0x18 = &deci4p_tty_vfs_mount2,
+  .data_0x1C = 0
+};
+
+SceVfsAdd deci4p_tty_vfs_add = {
+    .func_ptr1 = &vfs_func_table_1,
+    .device = DECI4P_TTY_FS_DEVICE,
+    .data_0x08 = 0x13,
+    .data_0x0C = 0,
+    .data_0x10 = 0x10,
+    .func_ptr2 = &vfs_func_table_2,
+    .data_0x18 = 0
+};
+
 static int suspend_intr_addr = 0; //maybe int[2] ?
 
 static int handler(SceUID pid) { //This is reversed from exit handler, but the code is the same for kill ?
@@ -57,7 +101,7 @@ static int handler(SceUID pid) { //This is reversed from exit handler, but the c
                 if (ctx1unk1030 == ctx3_p){
                     ctx1[0].ctx3.unk_1030 = ctx3_p;
                     if (ctx1unk1030->unk_1030 == NULL)
-                        ctx1[0].associated_ctx3 = &ctx1[0].ctx3.unk_1030;
+                        ctx1[0].associated_ctx3 = &ctx1[0].ctx3;
                     ctx3_p->unk_1030 = NULL;
                 }
                 else {

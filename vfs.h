@@ -1,4 +1,7 @@
 
+#ifndef VFS_H
+#define VFS_H
+
 #include <psp2kern/kernel/iofilemgr/dirent.h>
 //Reverse by Princess of Sleeping
 //see : https://github.com/Princess-of-Sleeping/vita-utility
@@ -234,10 +237,12 @@ int ksceVfsDeleteVfs(const char *fs, void *a2); // "deci4p_drfp_dev_fs"
 int ksceVfsNodeSetEventFlag(SceVfsNode* pNode);
 
 //reverse by CreepNT
-typedef struct SceVfsIoctl{ //name not sure
+typedef struct _SceVfsIoctl{ //name not sure
 	SceVfsNode* node;
 	void* objectBase;
 	uint32_t unk8; //request type maybe
 	void* unkC;
 	uint32_t unk10; //size of block pointed to by unkC maybe
 } SceVfsIoctl;
+
+#endif

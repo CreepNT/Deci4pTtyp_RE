@@ -8,7 +8,7 @@
 #include "vfs.h"
 #include "deci4p_tty.h"
 
-static uint32_t SuspendIntr_param[7] = {0};
+static int32_t SuspendIntr_param = 0;
 
 int FUN_810011B4(void* a1){
     //a1 is maybe SveVfsNode** (or struct* with first field SceVfsNode*)
@@ -79,7 +79,7 @@ int FUN_810012EC(SceVfsOpen* args){ //VFS_Open
 int FUN_810012C4(SceVfsClose* args){ //VFS_Close
     void** heapMemPtr = (void**)((uintptr_t)args->objectBase + 0x20);
     if (*heapMemPtr != NULL){
-        ksceKernelFreeHeapMemory(get_deci4p_heap_UID(), *heapMemPtr);
+        ksceKernelFreeHeapMemory(SceDeci4pTtyp_global_heap, *heapMemPtr);
         *heapMemPtr = NULL;
     }
 
@@ -144,7 +144,7 @@ size_t VfsReadInternal(int port_num, void* data, size_t size, int a4){
         //Wait for event flag
 
         char *start = ctx2_p->bufStart, *end = ctx2_p->bufEnd; //Use local variables to avoid race condition (I think)
-        for (int evf_bit = a4 & 4, evf; evf_bit == 0; evf_bit = evf & 4, start = ctx2_p->bufStart, end = ctx2_p->bufEnd){
+        for (uint32_t evf_bit = a4 & 4, evf; evf_bit == 0; evf_bit = evf & 4, start = ctx2_p->bufStart, end = ctx2_p->bufEnd){
             if (start != end) break /*goto skip_check*/;
             int ret2 = ksceKernelWaitEventFlag(ctx1[port_num].eventFlag, 0x5, SCE_KERNEL_EVF_WAITMODE_OR, &evf, NULL);
             if (ret2 < 0){
@@ -166,7 +166,7 @@ size_t VfsReadInternal(int port_num, void* data, size_t size, int a4){
         if (end == ctx2_p->bufStart) //wtf ?
             ch = '\0';
         else {
-            if (&ctx2[port_num + 1] <= ctx2_p->bufEnd) { //Make sure we don't overwrite past the buffer
+            if ((void*)&ctx2[port_num + 1] <= (void*)ctx2_p->bufEnd) { //Make sure we don't overwrite past the buffer
                 ctx2_p->bufEnd = ctx2_p->buffer;
             }
             ctx2_p->bufEnd++;
@@ -206,10 +206,10 @@ size_t VfsReadInternal(int port_num, void* data, size_t size, int a4){
                             break;
                         ch = chp2[-2];
                         chp2--;
-                    } while ((ch & 0xC0) == 80);
+                    } while ((ch & 0xC0) == 0x80);
                     if (unk != 0 && unk != 6){
-                        len = 1 << (5 - (unk - 1) & 0xFF);
-                        if ( (len ^ (len - 1 | ch)) != 0xFF){
+                        len = 1 << (5 - (unk - 1));
+                        if ( (len ^ ((len - 1) | ch)) != 0xFF){
                             data_p[len] = ch;
                             len++;
                             continue;
@@ -231,7 +231,7 @@ size_t VfsReadInternal(int port_num, void* data, size_t size, int a4){
 size_t FUN_81001208(SceVfsRead* args){ //VFS_Read
     int ret = ksceVfsNodeSetEventFlag(args->node);
     if (ret >= 0){
-        int ret2 = VfsReadInternal(args->node->dev_info, args->data, args->size, 0);
+        int ret2 = VfsReadInternal((int)args->node->dev_info, args->data, args->size, 0);
         ret = ksceVfsNodeWaitEventFlag(args->node);
         //asm("ands.w r0, r0, r0, asr #32")
         //asm("it cc")
@@ -243,7 +243,7 @@ size_t FUN_81001208(SceVfsRead* args){ //VFS_Read
     return ret;
 }
 
-size_t VfsWriteInternal(int port_number, void* data, size_t size, uint32_t a4){
+size_t VfsWriteInternal(int port_number, const void* data, size_t size, uint32_t* a4){
     if (size < 0)
         return SCE_ERROR_ERRNO_EINVAL;
 
@@ -256,8 +256,8 @@ size_t VfsWriteInternal(int port_number, void* data, size_t size, uint32_t a4){
         return 0;
     }
 
-    uint32_t prodMode[2] = {0};
-    char* buf = data;
+    int32_t prodMode[2] = {0};
+    const char* buf = data;
     kscePmMgrGetProductMode(prodMode);
     if (prodMode[0] == 0){
         //init ctx3 (if not already done)
@@ -291,12 +291,12 @@ size_t VfsWriteInternal(int port_number, void* data, size_t size, uint32_t a4){
                 if (ret == 0){
                     if (a4 == NULL){
                         ctx3_p->unk10 = 0x8000;
-                        ctx3_p->unk14 = 0;
+                        ctx3_p->unk14 = (SceUID)NULL;
                         ctx3_p->unk18 = 0;
                     }
                     else {
                         ctx3_p->unk10 = 0x1000;
-                        ctx3_p->unk14 = a4;
+                        ctx3_p->unk14 = (SceUID)a4;
                         ctx3_p->unk18 = 0;
                     }
                 }
@@ -369,9 +369,9 @@ size_t VfsWriteInternal(int port_number, void* data, size_t size, uint32_t a4){
                         }
                         ksceKernelUnlockMutex(SceDeci4pTtyp_global_mutex, 1);
                     }
-                    int state = ksceKernelCpuSuspendIntr(SuspendIntr_param);
+                    int state = ksceKernelCpuSuspendIntr(&SuspendIntr_param);
                     memset(ctx3_p, 0, sizeof(Deci4pTTY_ctx3));
-                    ksceKernelCpuResumeIntr(SuspendIntr_param, state);
+                    ksceKernelCpuResumeIntr(&SuspendIntr_param, state);
                     ksceKernelSignalSema(SceDeci4pTtyp_global_sema, 1);
                 }
                 buf += used_size;
@@ -408,7 +408,7 @@ size_t VfsWriteInternal(int port_number, void* data, size_t size, uint32_t a4){
 size_t FUN_810011C8(SceVfsWrite* args){ //VFS_Write
     int ret = ksceVfsNodeSetEventFlag(args->node);
     if (ret >= 0){
-        int ret2 = VfsWriteInternal(args->node->dev_info, args->data, args->size, *(int*)(args->objectBase + 0x20));
+        int ret2 = VfsWriteInternal((int)args->node->dev_info, args->data, args->size, *(uint32_t**)(args->objectBase + 0x20));
         ret = ksceVfsNodeWaitEventFlag(args->node);
         //asm("ands.w r0, r0, r0, asr #32")
         //asm("it cc")
@@ -417,6 +417,7 @@ size_t FUN_810011C8(SceVfsWrite* args){ //VFS_Write
         if (ret >= 0)
             return ret2;
     }
+    return ret;
 }
 
 int FUN_810012F8(SceVfsIoctl* args){ //VFS_Ioctl
@@ -463,7 +464,7 @@ int FUN_810011B0(){
     return 0;
 }
 
-const SceVfsTable vfs_func_table_1 = {
+SceVfsTable vfs_func_table_1 = {
     .func00 = FUN_810011B4,
     .func04 = FUN_81001178,
     .func08 = FUN_8100117C,
@@ -479,7 +480,7 @@ const SceVfsTable vfs_func_table_1 = {
     .func30 = NULL
 };
 
-const SceVfsTable2 vfs_func_table_2 = {
+SceVfsTable2 vfs_func_table_2 = {
     .func00 = FUN_810012EC,
     .func04 = NULL,
     .func08 = FUN_810012C4,
