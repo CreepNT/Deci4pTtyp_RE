@@ -271,19 +271,19 @@ size_t VfsWriteInternal(int port_number, const void* data, size_t size, uint32_t
                 if (ret < 0)
                     break;
 
-                int firstNonInitIdx;
-                if (ctx3[0].hasBeenInit)
-                    if (ctx3[1].hasBeenInit)
-                        if (ctx3[2].hasBeenInit){
+                int firstFreeIdx;
+                if (ctx3[0].currentState) //Check if non-0 (not free)
+                    if (ctx3[1].currentState)
+                        if (ctx3[2].currentState){
                             ksceKernelUnlockMutex(SceDeci4pTtyp_global_mutex, 1);
                             break;
                         }
-                        else firstNonInitIdx = 2;
-                    else firstNonInitIdx = 1;
-                else firstNonInitIdx = 0;
+                        else firstFreeIdx = 2;
+                    else firstFreeIdx = 1;
+                else firstFreeIdx = 0;
                 
-                Deci4pTTY_ctx3* ctx3_p = &ctx3[firstNonInitIdx];
-                ctx3_p->hasBeenInit = 1;
+                Deci4pTTY_ctx3* ctx3_p = &ctx3[firstFreeIdx];
+                ctx3_p->currentState = 1;
                 ksceKernelUnlockMutex(SceDeci4pTtyp_global_mutex, 1);
                 ctx3_p->unk12 = 0;
 
@@ -305,7 +305,7 @@ size_t VfsWriteInternal(int port_number, const void* data, size_t size, uint32_t
                     SceKernelFaultingProcessInfo fpi;
                     ksceKernelGetFaultingProcess(&fpi);
                     ctx3_p->unk14 = fpi.pid;
-                    ret = SceThreadmgrForDriver_F311808F(fpi.unk);
+                    ret = sceKernelGetUserThreadId(fpi.unk);
                     ctx3_p->unk18 = ret;
                 }
 
@@ -320,10 +320,10 @@ size_t VfsWriteInternal(int port_number, const void* data, size_t size, uint32_t
 
                 size_t used_size = (size > 0xFFF) ? 0x1000 : size;
                 memcpy(ctx3_p->unk2C, buf, used_size); //From SceSysclibForDriver
-                SceDeci4pDfMgrForDebugger_6D26CC56(ctx3_p, used_size + 0x2C);
-                ctx3_p->SceDeci4pDfMgrForDebugger_529979FB_handle = ctx1[port_number].SceDeci4pDfMgrForDebugger_529979FB_handle;
+                SceDeci4pDfMgrForDebugger_6D26CC56(ctx3_p, used_size + CTX3_HEADER_SIZE);
+                ctx3_p->SysEventHandlerId = ctx1[port_number].SysEventHandlerId;
                 ctx3_p->unk28 = used_size;
-                ctx3_p->hasBeenInit = 2;
+                ctx3_p->currentState = 2;
                 ret = ksceKernelLockMutex(SceDeci4pTtyp_global_mutex, 1, NULL);
                 if (ret >= 0){
                     Deci4pTTY_ctx3** ctx1_some_ptr = &ctx1[port_number].associated_ctx3;
@@ -332,7 +332,7 @@ size_t VfsWriteInternal(int port_number, const void* data, size_t size, uint32_t
                     ctx3_p->unk_1030 = NULL;
                     ksceKernelUnlockMutex(SceDeci4pTtyp_global_mutex, 1);
                 }
-                ret = SceDeci4pDfMgrForDebugger_BADEF855(ctx1[port_number].SceDeci4pDfMgrForDebugger_529979FB_handle);
+                ret = SceDeci4pDfMgrForDebugger_BADEF855(ctx1[port_number].SysEventHandlerId);
                 if (ret < 0 && ret != 0x80080007){
                     if (ret == 0x8008000A){
                         ctx2_p->unk0 |= 0x2;
@@ -370,7 +370,7 @@ size_t VfsWriteInternal(int port_number, const void* data, size_t size, uint32_t
                         ksceKernelUnlockMutex(SceDeci4pTtyp_global_mutex, 1);
                     }
                     int state = ksceKernelCpuSuspendIntr(&SuspendIntr_param);
-                    memset(ctx3_p, 0, sizeof(Deci4pTTY_ctx3));
+                    memset(ctx3_p, 0, sizeof(*ctx3_p));
                     ksceKernelCpuResumeIntr(&SuspendIntr_param, state);
                     ksceKernelSignalSema(SceDeci4pTtyp_global_sema, 1);
                 }

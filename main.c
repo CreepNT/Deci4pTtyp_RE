@@ -41,26 +41,26 @@ int module_start(void){
     if (SceDeci4pTtyp_global_sema < 0)
         return SCE_KERNEL_START_FAILED;
 
-    struct SceDeci4pDfMgrForDebugger_529979FB_arg2 pckt;
-    pckt.size = sizeof(pckt);
-    pckt.unk8 = 0;
-    pckt.unkC = 0x1000004;
-    pckt.unk10 = 0x20001;
-    pckt.unk14 = 0;
-    pckt.unk16 = 0x1;
+    SceDeci4pDfMgrRegisterSysEventForDebuggerParam regparam;
+    regparam.size = sizeof(regparam);
+    regparam.unk8 = 0;
+    regparam.unkC = 0x1000004;
+    regparam.unk10 = 0x20001;
+    regparam.unk14 = 0;
+    regparam.unk16 = 0x1;
 
-    //Setup internal context + call some Deci4pDfMgrForDebugger exports
+    //Setup internal context and register Deci4pSysEvent handlers
     for (int i = 0; i < TTY_COUNT; i++){
         //////Warning maybe incomplete
         char evf_name[0x20];
-        pckt.unk4 = 0x80030000 | i; //Addition is same as OR because i < 0x80030000
+        regparam.unk4 = 0x80030000 | i; //Addition is same as OR because i < 0x80030000
         snprintf(evf_name, sizeof(evf_name), MODULE_NAME"%d", i);
-        snprintf(pckt.name, sizeof(pckt.name), "TTYP%d", i);
+        snprintf(regparam.name, sizeof(regparam.name), "TTYP%d", i);
         ctx1[i].eventFlag = ksceKernelCreateEventFlag(evf_name, SCE_KERNEL_EVF_ATTR_0x8000 | SCE_KERNEL_EVF_ATTR_MULTI | SCE_KERNEL_EVF_ATTR_TH_FIFO, 0, NULL);
         ctx1[i].ctx2_ptr = &ctx2[i];
         ctx2[i].bufStart = ctx2[i].buffer;
         ctx2[i].bufEnd = ctx2[i].buffer;
-        ctx1[i].SceDeci4pDfMgrForDebugger_529979FB_handle = SceDeci4pDfMgrForDebugger_529979FB(0x81000381, &pckt, &ctx1[i]);
+        ctx1[i].SysEventHandlerId = sceDeci4pDfMgrRegisterSysEventForDebugger(FUN_81000380, &regparam, &ctx1[i]);
         ctx1[i].unk54 = 1;
         memset(&ctx1[i].ctx3, 0, sizeof(Deci4pTTY_ctx3));
         ctx1[i].associated_ctx3 = &ctx1[i].ctx3;

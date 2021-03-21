@@ -1,13 +1,17 @@
 modules:
-  SceDeci4p:
+  SceDeci4pDfMgr:
     nid: 0xFFFFFFFF
     libraries:
       SceDeci4pDfMgrForDebugger:
         nid: 0x849E3DF5
         functions:
-          SceDeci4pDfMgrForDebugger_529979FB: 0x529979FB
+          sceDeci4pDfMgrRegisterSysEventForDebugger: 0x529979FB
           SceDeci4pDfMgrForDebugger_BADEF855: 0xBADEF855
           SceDeci4pDfMgrForDebugger_6D26CC56: 0x6D26CC56
+          SceDeci4pDfMgrForDebugger_5F2C7E11: 0x5F2C7E11
+          SceDeci4pDfMgrForDebugger_CACAB5F9: 0xCACAB5F9
+          SceDeci4pDfMgrForDebugger_C3390112: 0xC3390112
+          SceDeci4pDfMgrForDebugger_5F2C7E11: 0x5F2C7E11
   SceSysmem:
     nid: 0x3380B323
     libraries:
@@ -23,7 +27,7 @@ modules:
           kernel: true
           nid: 0xE2C40624
           functions:
-            SceThreadmgrForDriver_F311808F: 0xF311808F
+            sceKernelGetUserThreadId: 0xF311808F
             SceThreadmgrForDriver_91382762: 0x91382762
             ksceKernelCreateEventFlag: 0x4336BAA4
             ksceKernelClearEventFlag: 0x4F1DA3BE
